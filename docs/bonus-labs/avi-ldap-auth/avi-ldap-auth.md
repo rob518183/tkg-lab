@@ -8,11 +8,11 @@ In this bonus lab, we will configure the LDAP Interface for Okta and then config
 
 ## Configure Okta for LDAP Integration
 
-- Create Sevice Bind User
-- Enbale LDAP Permissions
+- Create Service Bind User
+- Enable LDAP Permissions
 - Test Access
 
-### 1. Create Sevice Bind User
+### 1. Create Service Bind User
 
 A bind user is an account that is used for the client (NSX ALB) to initially access the LDAP interface for queries.
 
@@ -26,10 +26,10 @@ Choose Directory (side menu) > People > Add Person:
 Now set this new user as a Read Only Administrator for your account.
 
 Choose Security (side menu) > Administrators > Add Administrator:
-- In Grant administrator role to: enter your servicebind user account
+- In Grant administrator role to: enter your service bind user account
 - Assign the `Read Only Administrator` role
 
-### 2. Enbale LDAP Permissions
+### 2. Enable LDAP Permissions
 
 Access Okta using your account owner account.  Then following the [Enable the LDAP interface](https://help.okta.com/en/prod/Content/Topics/Directory/LDAP-interface-enable.htm) docs.  Note down the important settings provided.
 
@@ -41,7 +41,7 @@ Access Okta using your account owner account.  Then following the [Enable the LD
 | User Base DN | ou=users,dc=dev-REDACTED,dc=okta,dc=com |
 | Group Base DN | ou=groups, dc=dev-REDACTED, dc=okta, dc=com |
 
-[LDAP Inteface Connection Settings](https://help.okta.com/en/prod/Content/Topics/Directory/LDAP-interface-connection-settings.htm) docs page provides additional valuable connection settings usefule for interacting with this interface.
+[LDAP Inteface Connection Settings](https://help.okta.com/en/prod/Content/Topics/Directory/LDAP-interface-connection-settings.htm) docs page provides additional valuable connection settings useful for interacting with this interface.
 
 ### 3. Test Access
 
@@ -62,7 +62,7 @@ ldapsearch -H ldaps://dev-REDACTED.ldap.okta.com:636 -x -D "uid=servicebind@wint
 
 ### 1. Create Auth Policy
 
-As of NSX ALB v20.1.7, ESSENTIALS tier licensing can not use UI to create policies and this action must be performed using the shell.
+As of NSX ALB v20.1.7, ESSENTIALS tier licensing cannot use UI to create policies and this action must be performed using the shell.
 
 #### Enterprise Licensing Instructions
 
@@ -78,7 +78,7 @@ In the New Auth Profile dialog, complete the form and click save.
 
 #### Essentials Licensing Instructions
 
-SSH into the NSX ALB Contoller and configure the auth policy.  Below is a redacted transcript of the command.
+SSH into the NSX ALB Controller and configure the auth policy.  Below is a redacted transcript of the command.
 
 ```
 ssh admin@NSX_ALB_IP
@@ -105,7 +105,7 @@ authprofile:ldap:settings> group_search_scope AUTH_LDAP_SCOPE_SUBTREE
 authprofile:ldap:settings> group_member_is_full_dn
 authprofile:ldap:settings> group_filter (objectclass=groupofUniqueNames)
 authprofile:ldap:settings> no ignore_referrals
-saveauthprofile:ldap:settings> 
+authprofile:ldap:settings> save
 authprofile:ldap> save
 authprofile> save
 +-----------------------------+-------------------------------------------------------------------------+
@@ -137,6 +137,37 @@ authprofile> save
 | tenant_ref                  | admin                                                                   |
 +-----------------------------+-------------------------------------------------------------------------+
 ```
+Still withing the shell, configure the mapping profile.
+This is a fairly simple mapping, if the user is a member of Supervisor-Admin-Group, assign all roles to this user.
+
+configure authmappingprofile LDAPmapping
+authmappingprofile> type AUTH_PROFILE_LDAP
+authmappingprofile> tenant_ref admin
+authmappingprofile> mapping_rules index 1
+authmappingprofile:mapping_rules> group_match
+authmappingprofile:mapping_rules> criteria auth_match_contains
+authmappingprofile:mapping_rules> groups Supervisor-Admin-Group
+authmappingprofile:mapping_rules> assign_role ASSIGN_ALL
+authmappingprofile:mapping_rules> role_refs System-Admin
+authmappingprofile:mapping_rules> Save
+authmappingprofile> Save
+Save
++------------------+---------------------------------------------------------+
+| Field            | Value                                                   |
++------------------+---------------------------------------------------------+
+| uuid             | authmappingprofile-d2b0916a-8552-4564-bbe4-976df2f58447 |
+| name             | LDAPmapping                                             |
+| type             | AUTH_PROFILE_LDAP                                       |
+| mapping_rules[1] |                                                         |
+|   index          | 1                                                       |
+|   group_match    |                                                         |
+|     criteria     | AUTH_MATCH_CONTAINS                                     |
+|     groups[1]    | Supervisor-Admin-Group                                  |
+|   assign_role    | ASSIGN_ALL                                              |
+|   role_refs[1]   | System-Admin                                            |
+| tenant_ref       | admin                                                   |
++------------------+---------------------------------------------------------+
+
 
 ### 2. Assign Auth Policy
 
@@ -148,9 +179,16 @@ Go to `Administration -> Settings -> Authentication/Authorization`.
 
 Click the pencil icon to edit the configuration.
 
-Choose `Remote` Authenticaiton and select your newly created Auth Profile.
+Choose `Remote` Authentication and select your newly created Auth Profile.
 
 <img src="assign-auth-profile.png" width="800">
+
+NEW METHOD
+
+Log in to the AVI web interface as admin, go to Administration - System settings and click on Edit.
+Under Authentication, select Remote
+Check Enable Local User Login
+Add both profiles and click on Save.
 
 ### 3. Create Role Mapping for Admin Permissions
 
